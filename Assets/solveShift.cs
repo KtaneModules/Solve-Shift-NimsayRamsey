@@ -51,6 +51,8 @@ public class solveShift : MonoBehaviour {
 
 	private bool clutch = false;
 	private bool tBypass = false;
+	private bool ctrlBypassL = false;
+	private bool ctrlBypassR = false;
 
 	//private int solveCount = 0;
 	//-----------------------------------------------------//
@@ -76,7 +78,7 @@ public class solveShift : MonoBehaviour {
 		StateCheck.OnStateChange += i => { ResetSync(); };
 	}
 
-	private void Start () {
+	void Start () {
 		ArrowSet.SetActive(false);
 
 		noiseID = UnityEngine.Random.Range(0, 3);
@@ -182,7 +184,12 @@ public class solveShift : MonoBehaviour {
 	
 	void Update () {
 		if (!finishSetup) { return; }
-		clutch = Controller.GetButtonDown(KMGamepad.ButtonEnum.LB) || Controller.GetButtonDown(KMGamepad.ButtonEnum.RB) || Input.GetKey(KeyCode.LeftShift) || tBypass;
+		if (Controller.GetButtonDown(KMGamepad.ButtonEnum.LB)) { ctrlBypassL = true; }
+		if (Controller.GetButtonDown(KMGamepad.ButtonEnum.RB)) { ctrlBypassR = true; }
+		if (Controller.GetButtonUp(KMGamepad.ButtonEnum.LB)) { ctrlBypassL = false; }
+		if (Controller.GetButtonUp(KMGamepad.ButtonEnum.RB)) { ctrlBypassR = false; }
+
+		clutch = Input.GetKey(KeyCode.LeftShift) || tBypass || ctrlBypassL || ctrlBypassR;
 		if (syncEveryone == groupID && !syncSelf) {
 			totalGear[groupID-1] = totalGear[groupID-1] * gear;
 			syncSelf = true;
@@ -308,8 +315,8 @@ public class solveShift : MonoBehaviour {
 	}
 
 	void TwitchHandleForcedSolve() { //Autosolver
-		//Debug.LogFormat("[Needy Fuse Box #{0}] Autofix software loaded...autOS should fix any future power surges automatically", moduleId);
-		Debug.Log("Running autosolver...");
+		Debug.LogFormat("[Needy Fuse Box #{0}] Autofix software loaded...autOS should fix any future power surges automatically", moduleId);
+		//Debug.Log("Running autosolver...");
 		StartCoroutine(DealWithNeedy());
 	}
 	
@@ -332,7 +339,7 @@ public class solveShift : MonoBehaviour {
 			}
 			//if (shiftID == 0) { Debug.Log(freezeDisplay + " // " + (GrabSolves()+1)); }
 			if (freezeDisplay != GrabSolves()+1) {
-				Debug.Log("Solve Count is " + ((GrabSolves()+1)));
+				//Debug.Log("Solve Count is " + ((GrabSolves()+1)));
 				yield return new WaitForSeconds(0.1f);
 				List<int> j = new List<int> {};
 				List<int> n = new List<int> {};
@@ -343,22 +350,22 @@ public class solveShift : MonoBehaviour {
 				for (int i = 0; i < gearListMax[groupID-1].Count; i++) {
 					for (int q = 1; q < gearListMax[groupID-1][i]; q++) {
 						for (int m = i; m < gearListMax[groupID-1].Count; m++) {
-							if (shiftID == 0 ) { Debug.Log("Testing box " + m); }
-							if (shiftID == 0 ) { Debug.Log(gearListMax[groupID-1][m]); }
+							//if (shiftID == 0 ) { Debug.Log("Testing box " + m); }
+							//if (shiftID == 0 ) { Debug.Log(gearListMax[groupID-1][m]); }
 							while (j[m] < gearListMax[groupID-1][m]) {
 								j[m]++;
 								int l = 1;
 								for (int k = 0; k < gearListMax[groupID-1].Count; k++) {
 									l *= j[k];
-									if (shiftID == 0 ) { Debug.Log("Box " + k + " is " + j[k]); }
+									//if (shiftID == 0 ) { Debug.Log("Box " + k + " is " + j[k]); }
 								}
-								if (shiftID == 0 ) { Debug.Log(l); }
+								//if (shiftID == 0 ) { Debug.Log(l); }
 								//Debug.Log (l > GrabSolves()+1);
 								//Debug.Log(GrabSolves()+1);
 								if (l > GrabSolves()+1) { break; }
 								else
 								if ((GrabSolves()+1) % l == 0) {
-									if (shiftID == 0 ) { Debug.Log("Found a factor..."); }
+									//if (shiftID == 0 ) { Debug.Log("Found a factor..."); }
 									for (int p = 0; p < j.Count; p++){
 										n[p] = j[p];
 									}
@@ -369,7 +376,7 @@ public class solveShift : MonoBehaviour {
 						j[i] = q;
 					}
 				}
-				Debug.Log("Shifting ID " + shiftID + " to gear " + n[shiftID]);
+				//Debug.Log("Shifting ID " + shiftID + " to gear " + n[shiftID]);
 				StartCoroutine(TwitchShift(n[shiftID]));
 				freezeDisplay = GrabSolves()+1;
 			}

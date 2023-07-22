@@ -37,9 +37,8 @@ public static class ShiftSync {
 
 	public static int DishGroup (KMBombInfo Bomb, KMBossModule Boss) {
 		//Run once, never run again until the game is closed
-		//	-> Change to only ignore modules that solve with others
 		if (!banGrabbed) {
-			//Blacklist = Boss.GetIgnoredModules("Forget Me Not").ToList();
+			Blacklist = Boss.GetIgnoredModules("Solve Shift").ToList();
 			banGrabbed = true;
 		}
 		//------------------------------------------------//
