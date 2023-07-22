@@ -1,0 +1,10 @@
+{
+  "name": "solveShift-Editor",
+  "references": [
+    "solveShift"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": []
+}
