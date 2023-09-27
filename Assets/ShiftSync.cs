@@ -24,21 +24,17 @@ public static class ShiftSync {
 	private static string groupSerial = "";
 	private static int ID = 0;
 
-	public static List<string> Blacklist = new List<string> {
-		"ReportingAnomalies",
-		"ApplePenModule",
-		"PineapplePenModule",
-		"CastorModule",
-		"PolluxModule",
-		"xModule",
-		"yModule"
-	};
+	public static List<string> Blacklist = new List<string> {};
 	private static bool banGrabbed = false;
 
 	public static int DishGroup (KMBombInfo Bomb, KMBossModule Boss) {
 		//Run once, never run again until the game is closed
 		if (!banGrabbed) {
 			Blacklist = Boss.GetIgnoredModules("Solve Shift").ToList();
+			//REMOVE ONCE JSON IS ACCEPTED
+			Blacklist.Add("Solve Shift");
+			//END
+
 			banGrabbed = true;
 		}
 		//------------------------------------------------//

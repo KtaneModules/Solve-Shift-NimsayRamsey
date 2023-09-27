@@ -11,13 +11,13 @@ public class solveShift : MonoBehaviour {
 
 	public KMBombInfo Bomb;
 	public KMAudio Audio;
-	public KMNeedyModule Needy;
+	public KMBombModule Needy;
 	public KMBossModule BossInfo;
 	public KMGameInfo StateCheck;
 	public KMGamepad Controller;
 	public KMSelectable ModuleSelectable;
 
-	public GameObject ArrowSet;
+	//public GameObject ArrowSet; // This is no longer needed. Remove in next patch
 
 	public Transform StickShift;
 	public KMSelectable[] ShiftArrows;
@@ -29,6 +29,10 @@ public class solveShift : MonoBehaviour {
 
 	public Renderer ShifterHead;
 	public Material[] ShiftPatterns;
+
+	public TextMesh Counter;
+	public Renderer[] Backscreens;
+	public Material[] BackscreenColors; // Black / Red / Green
 
 	public bool DebugMode;
 	public int DebugBoard;
@@ -54,21 +58,25 @@ public class solveShift : MonoBehaviour {
 	private bool ctrlBypassL = false;
 	private bool ctrlBypassR = false;
 
+	private int strikeTimer = 15;
+	private int[] strikeTimerMax = new int[] { 5, 10, 15};
+	private bool groupFlash = false;
+
 	//private int solveCount = 0;
 	//-----------------------------------------------------//
-	private bool needyActive = false;
+	private bool moduleSolved = false;
 	static int moduleIdCounter = 1;
 	int moduleId;
 	//-----------------------------------------------------//
 	
 	private void Awake () {
 		moduleId = moduleIdCounter++;
-		ModuleSelectable.OnFocus += delegate () { ArrowSet.SetActive(true); };
-		ModuleSelectable.OnDefocus += delegate () { ArrowSet.SetActive(false); };
+		//ModuleSelectable.OnFocus += delegate () { ArrowSet.SetActive(true); };
+		//ModuleSelectable.OnDefocus += delegate () { ArrowSet.SetActive(false); };
 
-		GetComponent<KMNeedyModule>().OnNeedyActivation += NeedyStart;
+		//GetComponent<KMNeedyModule>().OnNeedyActivation += NeedyStart;
 		//GetComponent<KMNeedyModule>().OnTimerExpired += OnTimerExpired;
-		GetComponent<KMNeedyModule>().OnNeedyDeactivation += NeedyOff;
+		//GetComponent<KMNeedyModule>().OnNeedyDeactivation += NeedyOff;
 
 		foreach (KMSelectable NAME in ShiftArrows) {
 			KMSelectable pressedObject = NAME;
@@ -79,7 +87,7 @@ public class solveShift : MonoBehaviour {
 	}
 
 	void Start () {
-		ArrowSet.SetActive(false);
+		//ArrowSet.SetActive(false);
 
 		noiseID = UnityEngine.Random.Range(0, 3);
 		StartCoroutine(InitSync());
@@ -117,20 +125,12 @@ public class solveShift : MonoBehaviour {
 		gearListMax[groupID-1][shiftID] = gearMax;
 		totalGearMax[groupID-1] = totalGearMax[groupID-1] * gearMax;
 
+		syncSolves[groupID-1] = GrabSolves() + 1;
+
 		//Debug.Log(BoardPatterns[boardID, 0] + " " + BoardPatterns[boardID, 1] + " " + BoardPatterns[boardID, 2] + " " + BoardPatterns[boardID, 3] + " " + BoardPatterns[boardID, 4]);
 		//Debug.Log(BoardPatterns[boardID, 5] + " " + BoardPatterns[boardID, 6] + " " + BoardPatterns[boardID, 7] + " " + BoardPatterns[boardID, 8] + " " + BoardPatterns[boardID, 9]);
 		//Debug.Log(BoardPatterns[boardID, 10] + " " + BoardPatterns[boardID, 11] + " " + BoardPatterns[boardID, 12] + " " + BoardPatterns[boardID, 13] + " " + BoardPatterns[boardID, 14]);
 		//Debug.Log(coords);
-	}
-
-	void NeedyStart () {
-		syncSolves[groupID-1] = GrabSolves() + 1;
-		needyActive = true;
-	}
-
-	void NeedyOff () {
-		needyActive = false;
-		CheckGear();
 	}
 
 	void Shift (KMSelectable Arrow) {
@@ -156,6 +156,7 @@ public class solveShift : MonoBehaviour {
 		//Strike if clutch is not engaged
 		if (!clutch) {
 			Debug.LogFormat("[Solve Shift #{0}] Shift ID {1} attempted to shift gears without clutch engaged. ", syncMaster[groupID-1], shiftID+1, gearMax);
+			strikeTimer = 0;
 			Needy.HandleStrike();
 			return;
 		}
@@ -198,21 +199,74 @@ public class solveShift : MonoBehaviour {
 			syncSelf = false;
 		}
 		//tempTotal.text = totalGear.ToString();
-		if (needyActive) {
-			Needy.SetNeedyTimeRemaining(syncSolves[groupID-1]);
+		SolveCheck();
+		StrikeHandler();
+		PassHandler();
+		StrikeLightTimer();
+	}
+
+	void SolveCheck() {
+		if (!moduleSolved) {
+			Counter.text = (syncSolves[groupID-1]).ToString();
 
 			if (syncSolves[groupID-1] != GrabSolves() + 1) {
 				CheckGear();
 				syncSolves[groupID-1] = GrabSolves() + 1;
 			}
 		}
-		if (shiftID == 0 && signalStrike == groupID) {
-			strikebuffer++;
-			if (strikebuffer == 5) {
-				if (!needyActive) { Debug.LogFormat("[Solve Shift #{0}] Right on the last module too...", moduleId); }
-				Needy.HandleStrike();
-				signalStrike = 0;
-				strikebuffer = 0;
+	}
+
+	void PassHandler() {
+		//Debug.Log(GrabSolves() + " // " + GrabSolvables());
+		if (GrabSolves() == GrabSolvables() && !moduleSolved && strikeTimer != 0) {
+			moduleSolved = true;
+			Backscreens[0].material = BackscreenColors[2];
+			Backscreens[1].material = BackscreenColors[2];
+			Backscreens[2].material = BackscreenColors[2];
+			Counter.text = "";
+			if (shiftID == 0) { Debug.LogFormat("[Solve Shift #{0}] All non-ignored modules solved. Solving all group shifters...", moduleId); }
+			Needy.HandlePass();
+		}
+	}
+
+	void StrikeLightTimer() {
+		if (strikeTimer == 0 || strikeTimer == strikeTimerMax[1]) {
+			Backscreens[2].material = BackscreenColors[1];
+			if (groupFlash) {
+				Backscreens[0].material = BackscreenColors[1];
+				Backscreens[1].material = BackscreenColors[1];
+			}
+		} else if (strikeTimer == strikeTimerMax[0] || strikeTimer == strikeTimerMax[2]) {
+			if (moduleSolved) {
+				Backscreens[2].material = BackscreenColors[2];
+				if (groupFlash) {
+					Backscreens[0].material = BackscreenColors[2];
+					Backscreens[1].material = BackscreenColors[2];
+				}
+			} else {
+				Backscreens[2].material = BackscreenColors[0];
+				if (groupFlash) {
+					Backscreens[0].material = BackscreenColors[0];
+					Backscreens[1].material = BackscreenColors[0];
+				}
+			}
+			if (strikeTimer == strikeTimerMax[2]) { groupFlash = false; return; }
+		}
+		strikeTimer++;
+	}
+
+	void StrikeHandler() {
+		if (signalStrike == groupID) {
+			strikeTimer = 0;
+			groupFlash = true;
+			if (shiftID == 0) {
+				strikebuffer++;
+				if (strikebuffer == 5) {
+					//if () { Debug.LogFormat("[Solve Shift #{0}] Right on the last module too...", moduleId); }
+					Needy.HandleStrike();
+					signalStrike = 0;
+					strikebuffer = 0;
+				}
 			}
 		}
 	}
@@ -263,8 +317,20 @@ public class solveShift : MonoBehaviour {
 
 	private int GrabSolves() {
 		int OUT = Bomb.GetSolvedModuleNames().Count();
-		foreach (string Boss in Blacklist){
-			if (Bomb.GetSolvedModuleNames().Contains(Boss)) {
+		List<string> CACHE = Bomb.GetSolvedModuleNames();
+		foreach (string Boss in CACHE){
+			if (Blacklist.Contains(Boss)) {
+				OUT--;
+			}
+		}
+		return OUT;
+	}
+
+	private int GrabSolvables() {
+		int OUT = Bomb.GetSolvableModuleNames().Count();
+		List<string> CACHE = Bomb.GetSolvableModuleNames();
+		foreach (string Boss in CACHE){
+			if (Blacklist.Contains(Boss)) {
 				OUT--;
 			}
 		}
@@ -325,10 +391,7 @@ public class solveShift : MonoBehaviour {
 	IEnumerator DealWithNeedy () {
 		yield return "sendtochaterror Autosolve will begin once all Solve Shifts on this bomb have activated autosolve...";
 		bool solveStart = false;
-		while (true) {
-			while (!needyActive) {
-				yield return null;
-			}
+		while (!moduleSolved) {
 			while (!solveStart) {
 				twitchAuto[groupID-1][shiftID] = true;
 				solveStart = true;
